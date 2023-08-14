@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 import time
 import bs4
@@ -11,13 +10,10 @@ import mecab_ko
 import pandas as pd
 import re
 import random
-import Levenshtein
-import os
 
 requests.packages.urllib3.disable_warnings()
 def Make_Workbook():
     df = pd.DataFrame(columns=['퀴즈번호', '퀴즈문제'])
-
     print('★☆문제 크롤링★☆')
     start_time = time.time()
 
@@ -29,7 +25,6 @@ def Make_Workbook():
         soup = BeautifulSoup(response.text, 'html.parser')
 
         target_div = soup.find('div', class_='board-content txt-spo-body-2-400 font-gray01')
-
         extracted_text = soup.find_all('p', class_='label-text txt-spo-body-2-400 font-gray01')
         a = extracted_text[1].text
         b = a.split()[1][:-1]
@@ -41,6 +36,7 @@ def Make_Workbook():
             value = target_div.text.strip()
             new_row = {'퀴즈번호': c, '퀴즈문제': value}
             df.loc[len(df)] = new_row
+            print('퀴즈번호: ', c , '문제 크롤링 완료')
 
         else:
             print(f"Seq {b}: 해당하는 div 태그를 찾을 수 없습니다.")
@@ -61,7 +57,7 @@ def Make_Workbook():
 
         chrome_options = Options()
         chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--disable-gpu')  # Disable GPU acceleration
+        chrome_options.add_argument('--disable-gpu')
 
         driver = webdriver.Chrome(service=Service(), options=chrome_options)
 
@@ -102,6 +98,8 @@ def Make_Workbook():
                 answer = answer[:index_end]
             a_list.append(int(extracted_number))
             b_list.append(answer)
+            print('퀴즈번호: ', extracted_number, '정답 크롤링 완료')
+
     data = {
         '퀴즈번호':a_list,
         '정답': b_list
@@ -113,42 +111,7 @@ def Make_Workbook():
     df2['정답'] = df2['정답'].str.lstrip()
 
     df_final = pd.merge(df, df2, on='퀴즈번호', how='inner')
-    df_final.to_excel('df_final_0.xlsx', index=False)
-
-    end_time = time.time()
-    execution_time = end_time - start_time
-    print("코드 실행 시간:", execution_time, "초")
-
-    print('★☆정답 토크나이저★☆')
-    start_time = time.time()
-
-    정답_keyword =[]
-    file_path = 'df_final_0.xlsx'
-    df = pd.read_excel(file_path)
-    m = mecab_ko.Tagger()
-    NG_WORDS = ['은','는','이','가','의','습니다','을','를','와','과','에']
-
-    for i in range(len(df['정답'])):
-        cleaned_text = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', df['정답'][i])
-        print(cleaned_text)
-        result = m.parse(cleaned_text)
-
-        lines = result.split('\n')
-        print('lines: ',lines)
-
-        tokens = []
-        for line in lines:
-            if line == 'EOS':
-                break
-            parts = line.split('\t')
-            if len(parts) > 1:
-                if parts[0] not in NG_WORDS:
-                    tokens.append(parts[0])
-        정답_keyword.append((tokens))
-    df['정답_keyword'] = 정답_keyword
-    df.info()
-    df.to_excel('NIS_Workbook.xlsx', index=False)
-    os.remove(file_path)
+    df_final.to_excel('NIS_Workbook.xlsx', index=False)
 
     end_time = time.time()
     execution_time = end_time - start_time
@@ -158,15 +121,29 @@ def problem_solving():
     print('★☆문제 출력★☆')
     start_time = time.time()
 
-    file_path = 'df_final_1.xlsx'
+    file_path = 'NIS_Workbook.xlsx'
     df = pd.read_excel(file_path)
 
     random_index = random.randint(0, len(df['퀴즈문제']) - 1)
-
-
     random_item = df['퀴즈문제'][random_index-1]
-
     print("무작위 선택된 문제:", random_item)
+
+    df = pd.read_excel(file_path)
+    m = mecab_ko.Tagger()
+    NG_WORDS = ['은', '는', '이', '가', '의', '습니다', '을', '를', '와', '과', '에']
+
+    cleaned_text = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', df['정답'][random_index-1])
+    result = m.parse(cleaned_text)
+    lines = result.split('\n')
+
+    tokens1 = []
+    for line in lines:
+        if line == 'EOS':
+            break
+        parts = line.split('\t')
+        if len(parts) > 1:
+            if parts[0] not in NG_WORDS:
+                tokens1.append(parts[0])
 
     user_input = input("정답을 입력하세요: ")
     print("입력값:", user_input)
@@ -178,21 +155,23 @@ def problem_solving():
     result = m.parse(asdf)
     lines = result.split('\n')
 
-    tokens = []
+    tokens2 = []
     for line in lines:
         if line == 'EOS':
             break
         parts = line.split('\t')
         if len(parts) > 1:
             if parts[0] not in NG_WORDS:
-                tokens.append(parts[0])
+                tokens2.append(parts[0])
 
-    list1 = df['정답_keyword'][0]
-    list2 = "', '".join(tokens)
-    list2 = "['" + list2 + "']"
+    common_count = 0
+    for item in tokens1:
+        if item in tokens2:
+            common_count += 1
 
-    similarity_ratio = 1 - Levenshtein.distance(list1, list2) / max(len(list1), len(list2))
-    if similarity_ratio > 0.3:
+    similarity_ratio = common_count / len(tokens1)
+
+    if similarity_ratio > 0.75:
         print('정답!')
     else: print('오답!')
 
