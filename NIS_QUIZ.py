@@ -10,6 +10,8 @@ import mecab_ko
 import pandas as pd
 import re
 import random
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 requests.packages.urllib3.disable_warnings()
 def Make_Workbook():
@@ -164,12 +166,7 @@ def problem_solving():
             if parts[0] not in NG_WORDS:
                 tokens2.append(parts[0])
 
-    common_count = 0
-    for item in tokens1:
-        if item in tokens2:
-            common_count += 1
-
-    similarity_ratio = common_count / len(tokens1)
+    similarity_ratio = cosine_similarity_score(tokens1,tokens2)
 
     if similarity_ratio > 0.75:
         print('정답!')
@@ -179,5 +176,21 @@ def problem_solving():
     execution_time = end_time - start_time
     print("코드 실행 시간:", execution_time, "초")
 
-Make_Workbook()
+def cosine_similarity_score(list1, list2):
+    set1 = set(list1)
+    set2 = set(list2)
+
+    all_words = list(set1.union(set2))
+
+    vector1 = [1 if word in set1 else 0 for word in all_words]
+    vector2 = [1 if word in set2 else 0 for word in all_words]
+
+    vector1 = np.array(vector1)
+    vector2 = np.array(vector2)
+
+    similarity_score = cosine_similarity([vector1], [vector2])[0][0]
+
+    return similarity_score
+
+# Make_Workbook()
 problem_solving()
