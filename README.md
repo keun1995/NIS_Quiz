@@ -1,5 +1,12 @@
-# NIS_Quiz
-이 코드는 
+# NIS_Quiz.py
+이 코드는 국정원 홈페이지에 연재되는 추리 퀴즈와 그에 대한 정답을 크롤링해서 Workbook 을 만들고
+Workbook을 통해서 문제를 제시하면 사용자의 답변을 통해 정답/오답을 가려내는 코드입니다.
+
+1. def Make_Workbook():
+   이 함수는
+
+
+
 
 # OpenPose를 이용한 영상처리
 
